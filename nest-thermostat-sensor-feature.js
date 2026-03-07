@@ -12,14 +12,48 @@ const CSS = `
   .wrap {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding-top: 8px;
+    gap: 8px;
+    padding-top: 6px;
   }
 
   .chips {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
     gap: 8px;
+    padding-bottom: 2px;
+    scroll-snap-type: x proximity;
+  }
+
+  .chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chips.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    overflow: visible;
+  }
+
+  .summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--secondary-text-color);
+    font-size: 0.82rem;
+    line-height: 1.3;
+  }
+
+  .summary-label {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+  }
+
+  .summary-value {
+    color: var(--primary-text-color);
+    font-weight: 600;
   }
 
   .chip {
@@ -27,15 +61,17 @@ const CSS = `
     flex-direction: column;
     align-items: flex-start;
     gap: 4px;
-    min-height: 68px;
-    padding: 10px 12px;
-    border-radius: 18px;
+    min-width: 138px;
+    min-height: 58px;
+    padding: 9px 11px;
+    border-radius: 16px;
     border: 1px solid var(--divider-color);
     background: color-mix(in srgb, var(--card-background-color) 88%, var(--primary-background-color));
     color: var(--primary-text-color);
     cursor: pointer;
     text-align: left;
     transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+    scroll-snap-align: start;
   }
 
   .chip:hover {
@@ -56,19 +92,19 @@ const CSS = `
   }
 
   .name {
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     font-weight: 600;
     line-height: 1.2;
   }
 
   .temp {
-    font-size: 1.15rem;
+    font-size: 1.02rem;
     letter-spacing: -0.02em;
     line-height: 1.1;
   }
 
   .meta {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     color: var(--secondary-text-color);
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -110,6 +146,18 @@ const CSS = `
     color: var(--secondary-text-color);
     font-size: 0.84rem;
     line-height: 1.4;
+  }
+
+  @media (max-width: 600px) {
+    .chip {
+      min-width: 128px;
+    }
+
+    .summary {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
   }
 `;
 
@@ -159,6 +207,7 @@ class NestThermostatSensorFeature extends HTMLElement {
     return {
       type: CUSTOM_TYPE,
       select_entity: "",
+      layout: "compact",
     };
   }
 
@@ -225,7 +274,12 @@ class NestThermostatSensorFeature extends HTMLElement {
       });
     }
 
-    return { entries, targetUnit, selectState };
+    const activeEntry =
+      entries.find((entry) => entry.active) ||
+      entries.find((entry) => entry.option === selectState.state) ||
+      entries[0];
+
+    return { entries, targetUnit, selectState, activeEntry };
   }
 
   async _handleSelect(option, ev) {
@@ -274,9 +328,11 @@ class NestThermostatSensorFeature extends HTMLElement {
     const built = this._buildEntries();
     const entries = built.entries;
     const targetUnit = built.targetUnit;
+    const activeEntry = built.activeEntry;
     const unavailable = selectState.state === "unavailable" || selectState.state === "unknown";
+    const layout = this._config.layout === "grid" ? "grid" : "compact";
 
-    this.shadowRoot.innerHTML = `${style}<div class="wrap"><div class="chips"></div></div>`;
+    this.shadowRoot.innerHTML = `${style}<div class="wrap"><div class="summary"><div><div class="summary-label">Temperature Sensors</div><div class="summary-value">Using ${activeEntry?.label || selectState.state}</div></div><div>${formatTemperature(activeEntry?.temperature ?? null, targetUnit)}</div></div><div class="chips ${layout}"></div></div>`;
     const chips = this.shadowRoot.querySelector(".chips");
 
     for (const entry of entries) {
@@ -410,6 +466,38 @@ class NestThermostatSensorFeatureEditor extends HTMLElement {
 
     labelField.append(label, input);
     root.append(labelField);
+
+    const layoutField = document.createElement("label");
+    layoutField.className = "field";
+
+    const layoutLabel = document.createElement("div");
+    layoutLabel.className = "label";
+    layoutLabel.textContent = "Layout";
+
+    const layoutSelect = document.createElement("select");
+    for (const [value, labelText] of [
+      ["compact", "Compact row"],
+      ["grid", "Grid"],
+    ]) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = labelText;
+      if ((this._config.layout || "compact") === value) {
+        option.selected = true;
+      }
+      layoutSelect.append(option);
+    }
+    layoutSelect.addEventListener("change", (ev) => {
+      this._handleValueChanged("layout", ev.target.value);
+    });
+
+    const layoutHint = document.createElement("div");
+    layoutHint.className = "hint";
+    layoutHint.textContent =
+      "Compact keeps the thermostat card shorter when combined with the built-in HVAC, preset, and fan features.";
+
+    layoutField.append(layoutLabel, layoutSelect, layoutHint);
+    root.append(layoutField);
   }
 }
 

@@ -14,7 +14,35 @@ This feature is designed to work with the thermostat sensor-switching backend ch
 2. Install it from HACS.
 3. Add the feature to a thermostat card.
 
-## Example
+## Recommended Thermostat Card
+
+This keeps the built-in thermostat dial and controls, while adding inline Nest sensor temperatures and switching.
+
+```yaml
+type: thermostat
+entity: climate.living_room
+features:
+  - type: climate-hvac-modes
+    hvac_modes:
+      - heat_cool
+      - heat
+      - cool
+      - "off"
+  - type: climate-preset-modes
+    style: dropdown
+    preset_modes:
+      - eco
+  - type: climate-fan-modes
+    style: dropdown
+    fan_modes:
+      - "off"
+      - auto
+  - type: custom:nest-thermostat-sensor-feature
+    select_entity: select.living_room_active_temperature_sensor
+    layout: compact
+```
+
+## Minimal Example
 
 ```yaml
 type: thermostat
@@ -29,3 +57,6 @@ features:
 - The feature reads the thermostat's own current temperature from the climate entity.
 - It reads the remote sensor temperatures from the linked `select` entity attributes exposed by the custom Nest Protect backend.
 - Remote sensor temperatures are converted to the thermostat card's displayed unit when needed.
+- `layout: compact` is recommended when combining this feature with the built-in thermostat controls.
+- `layout: grid` is available if you prefer larger sensor tiles.
+- This feature extends the thermostat card, but it does not patch the default thermostat card globally. You still need to add it in the card configuration.
