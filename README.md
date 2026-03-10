@@ -16,8 +16,9 @@ This feature is designed to work with the thermostat sensor-switching backend ch
 
 ## Recommended Thermostat Card
 
-This keeps the built-in thermostat dial and HVAC mode row, while adding inline Nest-aware controls for:
+This keeps the built-in thermostat dial, while the custom feature renders Nest-aware controls for:
 
+- HVAC mode
 - Normal vs Eco
 - fan timer duration and start/stop
 - thermostat and remote sensor temperatures
@@ -27,12 +28,6 @@ This keeps the built-in thermostat dial and HVAC mode row, while adding inline N
 type: thermostat
 entity: climate.living_room
 features:
-  - type: climate-hvac-modes
-    hvac_modes:
-      - heat_cool
-      - heat
-      - cool
-      - "off"
   - type: custom:nest-thermostat-sensor-feature
     select_entity: select.living_room_active_temperature_sensor
     layout: compact
@@ -53,8 +48,8 @@ features:
 - The feature reads the thermostat's own current temperature from the climate entity.
 - It reads the remote sensor temperatures from the linked `select` entity attributes exposed by the custom Nest Protect backend.
 - Remote sensor temperatures are converted to the thermostat card's displayed unit when needed.
-- When the thermostat supports them, the feature also renders Nest-aware `Normal/Eco` and fan timer controls.
+- When the thermostat supports them, the feature also renders Nest-aware HVAC, `Normal/Eco`, and fan timer controls.
 - The fan timer controls use the companion `nest_protect.set_fan_timer` backend service.
-- `layout: compact` is recommended when combining this feature with the built-in thermostat controls.
+- `layout: compact` is recommended. The cleanest layout is to use this feature by itself rather than stacking built-in thermostat features above it.
 - `layout: grid` is available if you prefer larger sensor tiles.
 - This feature extends the thermostat card, but it does not patch the default thermostat card globally. You still need to add it in the card configuration.

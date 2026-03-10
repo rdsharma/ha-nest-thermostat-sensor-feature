@@ -7,6 +7,13 @@ const PRESET_NONE = "none";
 const PRESET_ECO = "eco";
 const FAN_OFF = "off";
 const FAN_ON = "on";
+const HVAC_LABELS = {
+  off: "Off",
+  heat: "Heat",
+  cool: "Cool",
+  heat_cool: "Heat/Cool",
+  auto: "Auto",
+};
 const FAN_TIMER_OPTIONS = [
   { minutes: 15, label: "15 min" },
   { minutes: 30, label: "30 min" },
@@ -31,16 +38,16 @@ const CSS = `
   .controls {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .control-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 10px 12px;
-    border-radius: 16px;
-    background: color-mix(in srgb, var(--card-background-color) 90%, var(--primary-background-color));
+    gap: 7px;
+    padding: 9px 11px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--card-background-color) 94%, var(--primary-background-color));
     border: 1px solid var(--divider-color);
   }
 
@@ -71,39 +78,51 @@ const CSS = `
   }
 
   .segment-button,
-  .action-button {
+  .action-button,
+  .choice-button {
     border: 1px solid var(--divider-color);
     border-radius: 12px;
     background: transparent;
     color: var(--primary-text-color);
-    padding: 10px 12px;
+    padding: 9px 11px;
     font: inherit;
     cursor: pointer;
     transition: border-color 120ms ease, background 120ms ease;
   }
 
   .segment-button.active,
-  .action-button.primary {
+  .action-button.primary,
+  .choice-button.active {
     border-color: var(--primary-color);
     background: color-mix(in srgb, var(--primary-color) 14%, var(--card-background-color));
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 45%, transparent);
   }
 
   .segment-button:disabled,
-  .action-button:disabled {
+  .action-button:disabled,
+  .choice-button:disabled {
     opacity: 0.6;
     cursor: default;
   }
 
-  .fan-row {
+  .choice-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
     gap: 8px;
-    align-items: center;
   }
 
-  .fan-select {
-    width: 100%;
+  .choice-button {
+    text-align: center;
+  }
+
+  .choice-button.stop {
+    border-style: dashed;
+  }
+
+  .control-hint {
+    color: var(--secondary-text-color);
+    font-size: 0.78rem;
+    line-height: 1.3;
   }
 
   .chips {
@@ -249,8 +268,8 @@ const CSS = `
       gap: 2px;
     }
 
-    .fan-row {
-      grid-template-columns: 1fr;
+    .choice-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 `;
@@ -315,7 +334,6 @@ class NestThermostatSensorFeature extends HTMLElement {
     this._config = {};
     this._busyOption = null;
     this._busyAction = false;
-    this._fanDurationMinutes = 15;
   }
 
   setConfig(config) {
@@ -418,6 +436,26 @@ class NestThermostatSensorFeature extends HTMLElement {
     }
   }
 
+  async _handleHvacMode(hvacMode, ev) {
+    stopEvent(ev);
+    if (!this._hass || !this._stateObj || this._busyAction) {
+      return;
+    }
+
+    this._busyAction = true;
+    this._render();
+
+    try {
+      await this._hass.callService("climate", "set_hvac_mode", {
+        entity_id: this._stateObj.entity_id,
+        hvac_mode: hvacMode,
+      });
+    } finally {
+      this._busyAction = false;
+      this._render();
+    }
+  }
+
   async _handleFanTimer(durationMinutes, ev) {
     stopEvent(ev);
     if (!this._hass || !this._config.select_entity || this._busyAction) {
@@ -448,12 +486,18 @@ class NestThermostatSensorFeature extends HTMLElement {
     const presetModes = Array.isArray(climate.attributes.preset_modes)
       ? climate.attributes.preset_modes
       : [];
+    const hvacModes = Array.isArray(climate.attributes.hvac_modes)
+      ? climate.attributes.hvac_modes
+      : [];
     const fanModes = Array.isArray(climate.attributes.fan_modes)
       ? climate.attributes.fan_modes
       : [];
     const services = this._hass?.services || {};
 
     return {
+      supportsHvac: hvacModes.length > 0,
+      hvacModes,
+      hvacMode: climate.state,
       supportsPreset:
         presetModes.includes(PRESET_NONE) && presetModes.includes(PRESET_ECO),
       presetMode: climate.attributes.preset_mode || PRESET_NONE,
@@ -473,6 +517,41 @@ class NestThermostatSensorFeature extends HTMLElement {
 
     const controlsRoot = document.createElement("div");
     controlsRoot.className = "controls";
+
+    if (controls.supportsHvac) {
+      const hvacGroup = document.createElement("div");
+      hvacGroup.className = "control-group";
+
+      const header = document.createElement("div");
+      header.className = "control-header";
+
+      const title = document.createElement("div");
+      title.className = "control-title";
+      title.textContent = "HVAC";
+
+      const value = document.createElement("div");
+      value.className = "control-value";
+      value.textContent = HVAC_LABELS[controls.hvacMode] || controls.hvacMode;
+      header.append(title, value);
+
+      const grid = document.createElement("div");
+      grid.className = "choice-grid";
+
+      for (const hvacMode of controls.hvacModes) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `choice-button${controls.hvacMode === hvacMode ? " active" : ""}`;
+        button.disabled = this._busyAction;
+        button.textContent = HVAC_LABELS[hvacMode] || hvacMode;
+        button.addEventListener("click", this._handleHvacMode.bind(this, hvacMode));
+        button.addEventListener("pointerdown", stopEvent);
+        button.addEventListener("mousedown", stopEvent);
+        grid.append(button);
+      }
+
+      hvacGroup.append(header, grid);
+      controlsRoot.append(hvacGroup);
+    }
 
     if (controls.supportsPreset) {
       const presetGroup = document.createElement("div");
@@ -528,50 +607,39 @@ class NestThermostatSensorFeature extends HTMLElement {
       value.textContent = controls.fanMode === FAN_ON ? "Running" : "Off";
       header.append(title, value);
 
-      const row = document.createElement("div");
-      row.className = "fan-row";
+      const hint = document.createElement("div");
+      hint.className = "control-hint";
+      hint.textContent =
+        controls.fanMode === FAN_ON
+          ? "Tap a new duration to restart the timer, or stop the fan."
+          : "Tap a duration to run the fan for that long.";
 
-      const durationSelect = document.createElement("select");
-      durationSelect.className = "fan-select";
-      durationSelect.disabled = this._busyAction;
+      const grid = document.createElement("div");
+      grid.className = "choice-grid";
+
       for (const optionDef of FAN_TIMER_OPTIONS) {
-        const option = document.createElement("option");
-        option.value = String(optionDef.minutes);
-        option.textContent = optionDef.label;
-        if (optionDef.minutes === this._fanDurationMinutes) {
-          option.selected = true;
-        }
-        durationSelect.append(option);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "choice-button";
+        button.disabled = this._busyAction;
+        button.textContent = optionDef.label;
+        button.addEventListener("click", this._handleFanTimer.bind(this, optionDef.minutes));
+        button.addEventListener("pointerdown", stopEvent);
+        button.addEventListener("mousedown", stopEvent);
+        grid.append(button);
       }
-      durationSelect.addEventListener("change", (ev) => {
-        this._fanDurationMinutes = Number(ev.target.value);
-      });
-      durationSelect.addEventListener("pointerdown", stopEvent);
-      durationSelect.addEventListener("mousedown", stopEvent);
-
-      const startButton = document.createElement("button");
-      startButton.type = "button";
-      startButton.className = "action-button primary";
-      startButton.disabled = this._busyAction;
-      startButton.textContent = "Run fan";
-      startButton.addEventListener(
-        "click",
-        this._handleFanTimer.bind(this, this._fanDurationMinutes),
-      );
-      startButton.addEventListener("pointerdown", stopEvent);
-      startButton.addEventListener("mousedown", stopEvent);
 
       const stopButton = document.createElement("button");
       stopButton.type = "button";
-      stopButton.className = "action-button";
+      stopButton.className = "choice-button stop";
       stopButton.disabled = this._busyAction || controls.fanMode !== FAN_ON;
       stopButton.textContent = "Stop";
       stopButton.addEventListener("click", this._handleFanTimer.bind(this, 0));
       stopButton.addEventListener("pointerdown", stopEvent);
       stopButton.addEventListener("mousedown", stopEvent);
+      grid.append(stopButton);
 
-      row.append(durationSelect, startButton, stopButton);
-      fanGroup.append(header, row);
+      fanGroup.append(header, hint, grid);
       controlsRoot.append(fanGroup);
     }
 
@@ -778,7 +846,7 @@ class NestThermostatSensorFeatureEditor extends HTMLElement {
     const layoutHint = document.createElement("div");
     layoutHint.className = "hint";
     layoutHint.textContent =
-      "Compact keeps the thermostat card shorter when combined with the built-in HVAC feature.";
+      "Compact keeps the thermostat card shorter. The recommended setup uses only this custom feature and no built-in thermostat features.";
 
     layoutField.append(layoutLabel, layoutSelect, layoutHint);
     root.append(layoutField);
