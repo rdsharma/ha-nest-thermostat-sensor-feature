@@ -7,13 +7,6 @@ const PRESET_NONE = "none";
 const PRESET_ECO = "eco";
 const FAN_OFF = "off";
 const FAN_ON = "on";
-const HVAC_LABELS = {
-  off: "Off",
-  heat: "Heat",
-  cool: "Cool",
-  heat_cool: "Heat/Cool",
-  auto: "Auto",
-};
 const FAN_TIMER_OPTIONS = [
   { minutes: 15, label: "15 min" },
   { minutes: 30, label: "30 min" },
@@ -26,72 +19,82 @@ const FAN_TIMER_OPTIONS = [
 const CSS = `
   :host {
     display: block;
+    min-width: 0;
+    overflow: visible;
   }
 
   .wrap {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding-top: 6px;
+    padding-top: 4px;
+    min-width: 0;
   }
 
   .controls {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
 
-  .control-group {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    padding: 9px 11px;
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--card-background-color) 94%, var(--primary-background-color));
-    border: 1px solid var(--divider-color);
-  }
-
-  .control-header {
+  .control-strip {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: var(--feature-border-radius, 12px);
+    background: color-mix(in srgb, var(--card-background-color) 96%, var(--primary-background-color));
+    border: 1px solid var(--divider-color);
+    min-width: 0;
   }
 
-  .control-title {
+  .strip-head {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 56px;
+  }
+
+  .strip-label {
     color: var(--secondary-text-color);
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
+    line-height: 1;
   }
 
-  .control-value {
+  .strip-value {
     color: var(--primary-text-color);
-    font-size: 0.84rem;
+    font-size: 0.78rem;
     font-weight: 600;
+    line-height: 1.1;
   }
 
-  .segmented {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .strip-content {
+    display: flex;
+    align-items: center;
     gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
   .segment-button,
-  .action-button,
   .choice-button {
     border: 1px solid var(--divider-color);
-    border-radius: 12px;
+    border-radius: 999px;
     background: transparent;
     color: var(--primary-text-color);
-    padding: 9px 11px;
+    padding: 8px 12px;
     font: inherit;
     cursor: pointer;
     transition: border-color 120ms ease, background 120ms ease;
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
 
   .segment-button.active,
-  .action-button.primary,
   .choice-button.active {
     border-color: var(--primary-color);
     background: color-mix(in srgb, var(--primary-color) 14%, var(--card-background-color));
@@ -99,30 +102,59 @@ const CSS = `
   }
 
   .segment-button:disabled,
-  .action-button:disabled,
   .choice-button:disabled {
     opacity: 0.6;
     cursor: default;
   }
 
-  .choice-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  .segment-group {
+    display: inline-flex;
     gap: 8px;
-  }
-
-  .choice-button {
-    text-align: center;
+    flex-wrap: wrap;
   }
 
   .choice-button.stop {
     border-style: dashed;
   }
 
-  .control-hint {
+  .button-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .button-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  .summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     color: var(--secondary-text-color);
     font-size: 0.78rem;
-    line-height: 1.3;
+    line-height: 1.2;
+  }
+
+  .summary-left {
+    min-width: 0;
+  }
+
+  .summary-title {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.68rem;
+  }
+
+  .summary-value {
+    color: var(--primary-text-color);
+    font-weight: 600;
+    white-space: nowrap;
   }
 
   .chips {
@@ -130,8 +162,9 @@ const CSS = `
     overflow-x: auto;
     scrollbar-width: none;
     gap: 8px;
-    padding-bottom: 2px;
+    padding-bottom: 1px;
     scroll-snap-type: x proximity;
+    min-width: 0;
   }
 
   .chips::-webkit-scrollbar {
@@ -142,27 +175,6 @@ const CSS = `
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
     overflow: visible;
-  }
-
-  .summary {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    color: var(--secondary-text-color);
-    font-size: 0.82rem;
-    line-height: 1.3;
-  }
-
-  .summary-label {
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-size: 0.7rem;
-  }
-
-  .summary-value {
-    color: var(--primary-text-color);
-    font-weight: 600;
   }
 
   .chip {
@@ -263,13 +275,20 @@ const CSS = `
     }
 
     .summary {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 2px;
+      gap: 8px;
     }
 
-    .choice-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .control-strip {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .strip-content {
+      width: 100%;
+    }
+
+    .segment-group {
+      width: 100%;
     }
   }
 `;
@@ -436,26 +455,6 @@ class NestThermostatSensorFeature extends HTMLElement {
     }
   }
 
-  async _handleHvacMode(hvacMode, ev) {
-    stopEvent(ev);
-    if (!this._hass || !this._stateObj || this._busyAction) {
-      return;
-    }
-
-    this._busyAction = true;
-    this._render();
-
-    try {
-      await this._hass.callService("climate", "set_hvac_mode", {
-        entity_id: this._stateObj.entity_id,
-        hvac_mode: hvacMode,
-      });
-    } finally {
-      this._busyAction = false;
-      this._render();
-    }
-  }
-
   async _handleFanTimer(durationMinutes, ev) {
     stopEvent(ev);
     if (!this._hass || !this._config.select_entity || this._busyAction) {
@@ -486,18 +485,12 @@ class NestThermostatSensorFeature extends HTMLElement {
     const presetModes = Array.isArray(climate.attributes.preset_modes)
       ? climate.attributes.preset_modes
       : [];
-    const hvacModes = Array.isArray(climate.attributes.hvac_modes)
-      ? climate.attributes.hvac_modes
-      : [];
     const fanModes = Array.isArray(climate.attributes.fan_modes)
       ? climate.attributes.fan_modes
       : [];
     const services = this._hass?.services || {};
 
     return {
-      supportsHvac: hvacModes.length > 0,
-      hvacModes,
-      hvacMode: climate.state,
       supportsPreset:
         presetModes.includes(PRESET_NONE) && presetModes.includes(PRESET_ECO),
       presetMode: climate.attributes.preset_mode || PRESET_NONE,
@@ -518,59 +511,24 @@ class NestThermostatSensorFeature extends HTMLElement {
     const controlsRoot = document.createElement("div");
     controlsRoot.className = "controls";
 
-    if (controls.supportsHvac) {
-      const hvacGroup = document.createElement("div");
-      hvacGroup.className = "control-group";
-
-      const header = document.createElement("div");
-      header.className = "control-header";
-
-      const title = document.createElement("div");
-      title.className = "control-title";
-      title.textContent = "HVAC";
-
-      const value = document.createElement("div");
-      value.className = "control-value";
-      value.textContent = HVAC_LABELS[controls.hvacMode] || controls.hvacMode;
-      header.append(title, value);
-
-      const grid = document.createElement("div");
-      grid.className = "choice-grid";
-
-      for (const hvacMode of controls.hvacModes) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = `choice-button${controls.hvacMode === hvacMode ? " active" : ""}`;
-        button.disabled = this._busyAction;
-        button.textContent = HVAC_LABELS[hvacMode] || hvacMode;
-        button.addEventListener("click", this._handleHvacMode.bind(this, hvacMode));
-        button.addEventListener("pointerdown", stopEvent);
-        button.addEventListener("mousedown", stopEvent);
-        grid.append(button);
-      }
-
-      hvacGroup.append(header, grid);
-      controlsRoot.append(hvacGroup);
-    }
-
     if (controls.supportsPreset) {
       const presetGroup = document.createElement("div");
-      presetGroup.className = "control-group";
+      presetGroup.className = "control-strip";
 
-      const header = document.createElement("div");
-      header.className = "control-header";
+      const head = document.createElement("div");
+      head.className = "strip-head";
 
       const title = document.createElement("div");
-      title.className = "control-title";
+      title.className = "strip-label";
       title.textContent = "Mode";
 
       const value = document.createElement("div");
-      value.className = "control-value";
+      value.className = "strip-value";
       value.textContent = controls.presetMode === PRESET_ECO ? "Eco" : "Normal";
-      header.append(title, value);
+      head.append(title, value);
 
       const segmented = document.createElement("div");
-      segmented.className = "segmented";
+      segmented.className = "strip-content segment-group";
 
       for (const [presetMode, label] of [
         [PRESET_NONE, "Normal"],
@@ -587,35 +545,28 @@ class NestThermostatSensorFeature extends HTMLElement {
         segmented.append(button);
       }
 
-      presetGroup.append(header, segmented);
+      presetGroup.append(head, segmented);
       controlsRoot.append(presetGroup);
     }
 
     if (controls.supportsFanTimer) {
       const fanGroup = document.createElement("div");
-      fanGroup.className = "control-group";
+      fanGroup.className = "control-strip";
 
-      const header = document.createElement("div");
-      header.className = "control-header";
+      const head = document.createElement("div");
+      head.className = "strip-head";
 
       const title = document.createElement("div");
-      title.className = "control-title";
+      title.className = "strip-label";
       title.textContent = "Fan";
 
       const value = document.createElement("div");
-      value.className = "control-value";
+      value.className = "strip-value";
       value.textContent = controls.fanMode === FAN_ON ? "Running" : "Off";
-      header.append(title, value);
+      head.append(title, value);
 
-      const hint = document.createElement("div");
-      hint.className = "control-hint";
-      hint.textContent =
-        controls.fanMode === FAN_ON
-          ? "Tap a new duration to restart the timer, or stop the fan."
-          : "Tap a duration to run the fan for that long.";
-
-      const grid = document.createElement("div");
-      grid.className = "choice-grid";
+      const row = document.createElement("div");
+      row.className = "strip-content button-row";
 
       for (const optionDef of FAN_TIMER_OPTIONS) {
         const button = document.createElement("button");
@@ -626,7 +577,7 @@ class NestThermostatSensorFeature extends HTMLElement {
         button.addEventListener("click", this._handleFanTimer.bind(this, optionDef.minutes));
         button.addEventListener("pointerdown", stopEvent);
         button.addEventListener("mousedown", stopEvent);
-        grid.append(button);
+        row.append(button);
       }
 
       const stopButton = document.createElement("button");
@@ -637,9 +588,9 @@ class NestThermostatSensorFeature extends HTMLElement {
       stopButton.addEventListener("click", this._handleFanTimer.bind(this, 0));
       stopButton.addEventListener("pointerdown", stopEvent);
       stopButton.addEventListener("mousedown", stopEvent);
-      grid.append(stopButton);
+      row.append(stopButton);
 
-      fanGroup.append(header, hint, grid);
+      fanGroup.append(head, row);
       controlsRoot.append(fanGroup);
     }
 
@@ -676,6 +627,10 @@ class NestThermostatSensorFeature extends HTMLElement {
     const controls = this._buildClimateControls();
     const unavailable = selectState.state === "unavailable" || selectState.state === "unknown";
     const layout = this._config.layout === "grid" ? "grid" : "compact";
+    const featureHeight = this._featureHeight(controls, layout);
+
+    this.style.setProperty("--feature-height", `${featureHeight}px`);
+    this.style.height = `${featureHeight}px`;
 
     this.shadowRoot.innerHTML = `${style}<div class="wrap"><div class="feature-body"></div></div>`;
     const body = this.shadowRoot.querySelector(".feature-body");
@@ -683,7 +638,7 @@ class NestThermostatSensorFeature extends HTMLElement {
 
     body.insertAdjacentHTML(
       "beforeend",
-      `<div class="summary"><div><div class="summary-label">Temperature Sensors</div><div class="summary-value">Using ${activeEntry?.label || selectState.state}</div></div><div>${formatTemperature(activeEntry?.temperature ?? null, targetUnit)}</div></div><div class="chips ${layout}"></div>`,
+      `<div class="summary"><div class="summary-left"><div class="summary-title">Temperature Sensors</div><div class="summary-value">Using ${activeEntry?.label || selectState.state}</div></div><div class="summary-value">${formatTemperature(activeEntry?.temperature ?? null, targetUnit)}</div></div><div class="chips ${layout}"></div>`,
     );
     const chips = this.shadowRoot.querySelector(".chips");
 
@@ -711,6 +666,17 @@ class NestThermostatSensorFeature extends HTMLElement {
       button.append(meta, name, temp);
       chips.append(button);
     }
+  }
+
+  _featureHeight(controls, layout) {
+    let height = layout === "grid" ? 120 : 70;
+    if (controls?.supportsPreset) {
+      height += 52;
+    }
+    if (controls?.supportsFanTimer) {
+      height += 52;
+    }
+    return height;
   }
 }
 
@@ -846,7 +812,7 @@ class NestThermostatSensorFeatureEditor extends HTMLElement {
     const layoutHint = document.createElement("div");
     layoutHint.className = "hint";
     layoutHint.textContent =
-      "Compact keeps the thermostat card shorter. The recommended setup uses only this custom feature and no built-in thermostat features.";
+      "Compact keeps the thermostat card shorter and works best alongside the built-in HVAC thermostat feature.";
 
     layoutField.append(layoutLabel, layoutSelect, layoutHint);
     root.append(layoutField);
