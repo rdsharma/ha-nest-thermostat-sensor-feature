@@ -26,22 +26,22 @@ const CSS = `
   .wrap {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding-top: 4px;
+    gap: 6px;
+    padding-top: 2px;
     min-width: 0;
   }
 
   .controls {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
   }
 
   .control-strip {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
+    gap: 8px;
+    padding: 6px 10px;
     border-radius: var(--feature-border-radius, 12px);
     background: color-mix(in srgb, var(--card-background-color) 96%, var(--primary-background-color));
     border: 1px solid var(--divider-color);
@@ -53,8 +53,8 @@ const CSS = `
     flex: 0 0 auto;
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
-    min-width: 56px;
+    gap: 1px;
+    min-width: 52px;
   }
 
   .strip-label {
@@ -75,7 +75,7 @@ const CSS = `
   .strip-content {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     min-width: 0;
     flex: 1 1 auto;
   }
@@ -86,7 +86,7 @@ const CSS = `
     border-radius: 999px;
     background: transparent;
     color: var(--primary-text-color);
-    padding: 8px 12px;
+    padding: 7px 10px;
     font: inherit;
     cursor: pointer;
     transition: border-color 120ms ease, background 120ms ease;
@@ -109,7 +109,7 @@ const CSS = `
 
   .segment-group {
     display: inline-flex;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
   }
 
@@ -120,7 +120,7 @@ const CSS = `
   .button-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     overflow-x: auto;
     scrollbar-width: none;
     min-width: 0;
@@ -135,9 +135,9 @@ const CSS = `
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 8px;
     color: var(--secondary-text-color);
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     line-height: 1.2;
   }
 
@@ -148,7 +148,7 @@ const CSS = `
   .summary-title {
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-size: 0.68rem;
+    font-size: 0.64rem;
   }
 
   .summary-value {
@@ -161,7 +161,7 @@ const CSS = `
     display: flex;
     overflow-x: auto;
     scrollbar-width: none;
-    gap: 8px;
+    gap: 6px;
     padding-bottom: 1px;
     scroll-snap-type: x proximity;
     min-width: 0;
@@ -173,7 +173,7 @@ const CSS = `
 
   .chips.grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     overflow: visible;
   }
 
@@ -181,11 +181,11 @@ const CSS = `
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 4px;
-    min-width: 138px;
-    min-height: 58px;
-    padding: 9px 11px;
-    border-radius: 16px;
+    gap: 3px;
+    min-width: 126px;
+    min-height: 50px;
+    padding: 7px 10px;
+    border-radius: 14px;
     border: 1px solid var(--divider-color);
     background: color-mix(in srgb, var(--card-background-color) 88%, var(--primary-background-color));
     color: var(--primary-text-color);
@@ -213,19 +213,19 @@ const CSS = `
   }
 
   .name {
-    font-size: 0.88rem;
+    font-size: 0.84rem;
     font-weight: 600;
     line-height: 1.2;
   }
 
   .temp {
-    font-size: 1.02rem;
+    font-size: 0.96rem;
     letter-spacing: -0.02em;
     line-height: 1.1;
   }
 
   .meta {
-    font-size: 0.68rem;
+    font-size: 0.64rem;
     color: var(--secondary-text-color);
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -271,7 +271,7 @@ const CSS = `
 
   @media (max-width: 600px) {
     .chip {
-      min-width: 128px;
+      min-width: 118px;
     }
 
     .summary {
@@ -353,6 +353,8 @@ class NestThermostatSensorFeature extends HTMLElement {
     this._config = {};
     this._busyOption = null;
     this._busyAction = false;
+    this._syncHeightRaf = null;
+    this._lastMeasuredHeight = null;
   }
 
   setConfig(config) {
@@ -627,10 +629,6 @@ class NestThermostatSensorFeature extends HTMLElement {
     const controls = this._buildClimateControls();
     const unavailable = selectState.state === "unavailable" || selectState.state === "unknown";
     const layout = this._config.layout === "grid" ? "grid" : "compact";
-    const featureHeight = this._featureHeight(controls, layout);
-
-    this.style.setProperty("--feature-height", `${featureHeight}px`);
-    this.style.height = `${featureHeight}px`;
 
     this.shadowRoot.innerHTML = `${style}<div class="wrap"><div class="feature-body"></div></div>`;
     const body = this.shadowRoot.querySelector(".feature-body");
@@ -666,17 +664,28 @@ class NestThermostatSensorFeature extends HTMLElement {
       button.append(meta, name, temp);
       chips.append(button);
     }
+
+    this._scheduleHeightSync();
   }
 
-  _featureHeight(controls, layout) {
-    let height = layout === "grid" ? 120 : 70;
-    if (controls?.supportsPreset) {
-      height += 52;
+  _scheduleHeightSync() {
+    if (this._syncHeightRaf !== null) {
+      cancelAnimationFrame(this._syncHeightRaf);
     }
-    if (controls?.supportsFanTimer) {
-      height += 52;
-    }
-    return height;
+    this._syncHeightRaf = requestAnimationFrame(() => {
+      this._syncHeightRaf = null;
+      const wrap = this.shadowRoot?.querySelector(".wrap");
+      if (!wrap) {
+        return;
+      }
+      const measuredHeight = Math.ceil(wrap.getBoundingClientRect().height);
+      if (!measuredHeight || this._lastMeasuredHeight === measuredHeight) {
+        return;
+      }
+      this._lastMeasuredHeight = measuredHeight;
+      this.style.setProperty("--feature-height", `${measuredHeight}px`);
+      this.style.height = `${measuredHeight}px`;
+    });
   }
 }
 
