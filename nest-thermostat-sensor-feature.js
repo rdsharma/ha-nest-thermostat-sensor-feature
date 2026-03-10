@@ -26,23 +26,23 @@ const CSS = `
   .wrap {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding-top: 2px;
+    gap: 0.375rem;
+    padding-top: 0.125rem;
     min-width: 0;
   }
 
   .controls {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0.25rem;
   }
 
   .control-strip {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    border-radius: var(--feature-border-radius, 12px);
+    gap: 0.5rem;
+    padding: 0.375rem 0.625rem;
+    border-radius: var(--feature-border-radius, 0.75rem);
     background: color-mix(in srgb, var(--card-background-color) 96%, var(--primary-background-color));
     border: 1px solid var(--divider-color);
     min-width: 0;
@@ -53,8 +53,8 @@ const CSS = `
     flex: 0 0 auto;
     flex-direction: column;
     align-items: flex-start;
-    gap: 1px;
-    min-width: 52px;
+    gap: 0.0625rem;
+    min-width: 3.25rem;
   }
 
   .strip-label {
@@ -75,7 +75,7 @@ const CSS = `
   .strip-content {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.375rem;
     min-width: 0;
     flex: 1 1 auto;
   }
@@ -86,7 +86,7 @@ const CSS = `
     border-radius: 999px;
     background: transparent;
     color: var(--primary-text-color);
-    padding: 7px 10px;
+    padding: 0.4375rem 0.625rem;
     font: inherit;
     cursor: pointer;
     transition: border-color 120ms ease, background 120ms ease;
@@ -109,7 +109,7 @@ const CSS = `
 
   .segment-group {
     display: inline-flex;
-    gap: 6px;
+    gap: 0.375rem;
     flex-wrap: wrap;
   }
 
@@ -120,7 +120,7 @@ const CSS = `
   .button-row {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.375rem;
     overflow-x: auto;
     scrollbar-width: none;
     min-width: 0;
@@ -135,7 +135,7 @@ const CSS = `
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: 0.5rem;
     color: var(--secondary-text-color);
     font-size: 0.74rem;
     line-height: 1.2;
@@ -161,8 +161,8 @@ const CSS = `
     display: flex;
     overflow-x: auto;
     scrollbar-width: none;
-    gap: 6px;
-    padding-bottom: 1px;
+    gap: 0.375rem;
+    padding-bottom: 0.0625rem;
     scroll-snap-type: x proximity;
     min-width: 0;
   }
@@ -173,7 +173,7 @@ const CSS = `
 
   .chips.grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
     overflow: visible;
   }
 
@@ -181,11 +181,11 @@ const CSS = `
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 3px;
-    min-width: 126px;
-    min-height: 50px;
-    padding: 7px 10px;
-    border-radius: 14px;
+    gap: 0.1875rem;
+    min-width: 7.875rem;
+    min-height: 3.125rem;
+    padding: 0.4375rem 0.625rem;
+    border-radius: 0.875rem;
     border: 1px solid var(--divider-color);
     background: color-mix(in srgb, var(--card-background-color) 88%, var(--primary-background-color));
     color: var(--primary-text-color);
@@ -197,7 +197,7 @@ const CSS = `
 
   .chip:hover {
     border-color: var(--primary-color);
-    transform: translateY(-1px);
+    transform: translateY(-0.0625rem);
   }
 
   .chip.active {
@@ -239,13 +239,13 @@ const CSS = `
   .editor {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 0.75rem;
   }
 
   .field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0.375rem;
   }
 
   .label {
@@ -255,8 +255,8 @@ const CSS = `
 
   select,
   input {
-    padding: 10px 12px;
-    border-radius: 12px;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.75rem;
     border: 1px solid var(--divider-color);
     background: var(--card-background-color);
     color: var(--primary-text-color);
@@ -271,7 +271,7 @@ const CSS = `
 
   @media (max-width: 600px) {
     .chip {
-      min-width: 118px;
+      min-width: 7.375rem;
     }
 
     .summary {
@@ -353,8 +353,10 @@ class NestThermostatSensorFeature extends HTMLElement {
     this._config = {};
     this._busyOption = null;
     this._busyAction = false;
+    this._resizeObserver = null;
+    this._observedWrap = null;
     this._syncHeightRaf = null;
-    this._lastMeasuredHeight = null;
+    this._lastHeightSignature = null;
   }
 
   setConfig(config) {
@@ -370,6 +372,15 @@ class NestThermostatSensorFeature extends HTMLElement {
   set stateObj(stateObj) {
     this._stateObj = stateObj;
     this._render();
+  }
+
+  disconnectedCallback() {
+    if (this._syncHeightRaf !== null) {
+      cancelAnimationFrame(this._syncHeightRaf);
+      this._syncHeightRaf = null;
+    }
+    this._resizeObserver?.disconnect();
+    this._observedWrap = null;
   }
 
   _buildEntries() {
@@ -665,7 +676,23 @@ class NestThermostatSensorFeature extends HTMLElement {
       chips.append(button);
     }
 
+    this._observeWrap(this.shadowRoot.querySelector(".wrap"));
     this._scheduleHeightSync();
+  }
+
+  _observeWrap(wrap) {
+    if (!wrap || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    if (!this._resizeObserver) {
+      this._resizeObserver = new ResizeObserver(() => this._scheduleHeightSync());
+    }
+    if (this._observedWrap === wrap) {
+      return;
+    }
+    this._resizeObserver.disconnect();
+    this._resizeObserver.observe(wrap);
+    this._observedWrap = wrap;
   }
 
   _scheduleHeightSync() {
@@ -679,12 +706,16 @@ class NestThermostatSensorFeature extends HTMLElement {
         return;
       }
       const measuredHeight = Math.ceil(wrap.getBoundingClientRect().height);
-      if (!measuredHeight || this._lastMeasuredHeight === measuredHeight) {
+      const fontSize = parseFloat(getComputedStyle(this).fontSize || "16") || 16;
+      const signature = `${measuredHeight}:${fontSize}`;
+      if (!measuredHeight || this._lastHeightSignature === signature) {
         return;
       }
-      this._lastMeasuredHeight = measuredHeight;
-      this.style.setProperty("--feature-height", `${measuredHeight}px`);
-      this.style.height = `${measuredHeight}px`;
+      this._lastHeightSignature = signature;
+      const heightEm = measuredHeight / fontSize;
+      const heightValue = `${heightEm.toFixed(3)}em`;
+      this.style.setProperty("--feature-height", heightValue);
+      this.style.height = heightValue;
     });
   }
 }
